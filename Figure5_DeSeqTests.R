@@ -1,15 +1,15 @@
 
-#Filter out 18S, 16S, Mitochondria and Chloroplasts
+#Differential abundance testing via "Deseq" using unrarified data from the Compiled2018.rmd file. 
+#Filter out 18S, 16S, Mitochondria and Chloroplasts.
 des_18S = subset_taxa(unrare_18S, Kingdom == "Eukaryota")
 des_16S = subset_taxa(unrare_16S, (Kingdom != "Eukaryota")&(Class != "Chloroplast")&(Family != "Mitochondria"))
-
-
+#Bin 16S samples by date collections, One= August 2017, Two= October 2017, Three=May 2018, Four=July 2018, Five=October 2018.
 des_CB16LS_4= subset_samples(des_16S, Date=="d_Four")
 des_CB16LS_3= subset_samples(des_16S, Date=="c_Three")
 des_CB16LS_5= subset_samples(des_16S, Date=="e_Five")
 des_CB16LS_2= subset_samples(des_16S, Date=="b_Two")
 des_CB16LS_1= subset_samples(des_16S, Date=="a_One")
-
+#Bin 18S samples by date collections. 
 des_CB18LS_4= subset_samples(des_18S, Date=="d_Four")
 des_CB18LS_3= subset_samples(des_18S, Date=="c_Three")
 des_CB18LS_5= subset_samples(des_18S, Date=="e_Five")

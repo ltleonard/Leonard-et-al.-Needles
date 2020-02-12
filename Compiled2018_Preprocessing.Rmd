@@ -1,21 +1,7 @@
+##This initial code for Filtering, Sequence variants, and Merging/ remove chimeras, taxonomic assignments is modified from Benjamin Callahan, "A DADA2 workflow for Big Data: Paired-end" https://benjjneb.github.io/dada2/bigdata_paired.html to work with my data. 
 
 ```{r}
-source('http://bioconductor.org/biocLite.R')
-biocLite('phyloseq')
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install("dada2", version = "3.8")
-
-install.packages("vegan", repos="http://r-forge.r-project.org/")
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install("DESeq2", version = "3.8")
-
-install.packages("Rmisc")
-
-
+#Load the necessary libraries for preprocessing and analysis:
 library(ggplot2)
 library(phyloseq); packageVersion("phyloseq")
 library(ShortRead)
@@ -31,29 +17,25 @@ library(Rmisc)
 ```
 
 ```{r}
-pathF <- "/Users/lleonard/Documents/R/Compiled2018/raw_data_F/" #set path for forward reads
-pathR <- "/Users/lleonard/Documents/R/Compiled2018/raw_data_R/" #set path for reverse reads
+#Filtering raw files
+pathF <- "/FilePath/raw_data_F/" #set path for forward reads
+pathR <- "/FilePath/raw_data_R/" #set path for reverse reads
 filtpathF <- file.path(pathF, "filtered") # Filtered forward files go into the pathF/filtered/ subdirectory
 filtpathR <- file.path(pathR, "filtered") # ...
 fastqFs <- sort(list.files(pathF, pattern="fastq"))
 fastqRs <- sort(list.files(pathR, pattern="fastq"))
 if(length(fastqFs) != length(fastqRs)) stop("Forward and reverse files do not match.")
-# Filtering: THESE PARAMETERS ARENT OPTIMAL FOR ALL DATASETS
 #filterAndTrim(fwd=file.path(pathF, fastqFs), filt=file.path(filtpathF, fastqFs),
              # rev=file.path(pathR, fastqRs), filt.rev=file.path(filtpathR, fastqRs))
 
 filterAndTrim(fwd=file.path(pathF, fastqFs), filt=file.path(filtpathF, fastqFs), rev=file.path(pathR, fastqRs), filt.rev=file.path(filtpathR, fastqRs), trimLeft = c(40,20), truncLen=c(239,250), maxEE=2, truncQ=2, maxN=0, compress=TRUE, verbose=TRUE)
 
-??filterAndTrim
-
 ```
 
 ```{r}
-#These show your quality scores. Green line needs to be ideally above 30. Blake says 20 is the minimum. 30= 99.99% 
-??plotQualityProfile
-plotQualityProfile("/Users/lleonard/Documents/R/Compiled2018/raw_data_R/LS.R2.SM.10.25.2018_output_r2.fastq")
-plotQualityProfile(fastqFs[[1]])
-plotQualityProfile(fastqFs[1:2])
+#Analyze quality scores:
+#These show your quality scores. Score ideally is above 30 (and is in my case for most samples). 20 is the minimum. 
+plotQualityProfile(fnFs[[50]])
 plotQualityProfile(fnFs[[100]])
 plotQualityProfile(fnFs[[150]])
 plotQualityProfile(fnFs[[200]])
@@ -62,14 +44,15 @@ plotQualityProfile(fnRs[[50]])
 plotQualityProfile(fnRs[[100]])
 plotQualityProfile(fnRs[[150]])
 plotQualityProfile(fnRs[[200]])
-#if things drop below 20 here, you want to cutt off in truncLen at the number on the x-axis (Cycle)
+
 ```
 
 ```{r}
+#Infer sequence variants
 library(dada2); packageVersion("dada2")
 # File parsing
-filtpathF <- "/Users/lleonard/Documents/R/Compiled2018/raw_data_F/filtered" 
-filtpathR <- "/Users/lleonard/Documents/R/Compiled2018/raw_data_R/filtered" 
+filtpathF <- "/FilePath/raw_data_F/filtered" 
+filtpathR <- "/FilePath/raw_data_R/filtered" 
 filtFs <- list.files(filtpathF, pattern="fastq", full.names = TRUE)
 filtRs <- list.files(filtpathR, pattern="fastq", full.names = TRUE)
 sample.names <- sapply(strsplit(basename(filtFs), "_"), `[`, 1) # Assumes filename = samplename_XXX.fastq.gz
@@ -89,6 +72,8 @@ names(mergers) <- sample.names
 ```
 
 ```{r}
+#Sample inference and merger of paired-end reads
+#Here we will merge as 16S first
 for(sam in sample.names) {
   cat("Processing:", sam, "\n")
     derepF <- derepFastq(filtFs[[sam]])
@@ -101,7 +86,8 @@ for(sam in sample.names) {
 ```
 
 ```{r}
-# Sample inference and merger of paired-end reads
+#Sample inference and merger of paired-end reads
+#Here we will merge as 18S 
 mergers18 <- vector("list", length(sample.names))
 names(mergers18) <- sample.names
 for(sam in sample.names) {
@@ -116,31 +102,32 @@ for(sam in sample.names) {
 ```
 
 ```{r}
-#When I ran seqtab I got a message "The sequences being tabled vary in length"", and it created a "int" instead of a large matrix? When I view the two objects they look the same, so I'm going to keep moving on, but this seems like a potential issue....
+#16S sequence table with chimeras removed
 seqtab <- makeSequenceTable(mergers)
 
-
+#18S sequence table with chimeras removed
 seqtab18 <- makeSequenceTable(mergers18)
 
-#saveRDS(seqtab, "/Users/lleonard/Documents/R/CB_Sequence123/seqtab.rds") 
-#saveRDS(seqtab18, "/Users/lleonard/Documents/R/CB_Sequence123/seqtab18.rds") 
+#Save files
+#saveRDS(seqtab, "/FilePath/seqtab.rds") 
+#saveRDS(seqtab18, "/FilePath/seqtab18.rds") 
 ```
 
 
 ```{r}
+#Remove chimeras, assign taxonomy
 library(dada2); packageVersion("dada2")
-# Merge multiple runs (if necessary)
-# Remove chimeras
+# Remove chimeras for 16S
 seqtab <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE)
-
+#Remove chimeras for 18S
 seqtab18 <- removeBimeraDenovo(seqtab18, method="consensus", multithread=TRUE)
-# Assign taxonomy
-tax <- assignTaxonomy(seqtab, "/Users/lleonard/Documents/R/Compiled2018/silva_nr_v128_train_set.fa", multithread=TRUE)
-
-tax18 <- assignTaxonomy(seqtab18, "/Users/lleonard/Documents/R/Compiled2018/silva_nr_v128_train_set.fa", multithread=TRUE)
+# Assign taxonomy for 16S
+tax <- assignTaxonomy(seqtab, "/FilePath/silva_nr_v128_train_set.fa", multithread=TRUE)
+#Assign taxonomy for 18S
+tax18 <- assignTaxonomy(seqtab18, "/FilePath/silva_nr_v128_train_set.fa", multithread=TRUE)
 # Write to disk
-#saveRDS(seqtab, "/Users/lleonard/Documents/R/CB_Sequence123/seqtab_final.rds") # CHANGE ME to where you want sequence table saved
-#saveRDS(tax, "/Users/lleonard/Documents/R/CB_Sequence123/tax_final.rds") # CHANGE ME 
+#saveRDS(seqtab, "/FilePath/seqtab_final.rds") 
+#saveRDS(tax, "FilePath/tax_final.rds")
 ```
 
 ```{r}
@@ -160,17 +147,14 @@ uniquesToFasta(seqtab, "16S_uniques.fasta", ids = a)
 #RUN QIIME CODE IN BETWEEN HERE TO GENERATE TRE FILE
 ```{r}
 #Load into phyloseq FOR 18S
-#ps <- phyloseq(otu_table(seqtab, taxa_are_rows=FALSE), tax_table(tax))
-#map <-read.csv("file.csv", sep=";", header=TRUE)
-#meta = read.table("/Users/lleonard/Documents/R/CB_Sequence123/MappingFile123.txt",header=TRUE)
-meta = ("/Users/lleonard/Documents/R/Compiled2018/Compiled2018MappingFile.txt")
+meta = ("/FilePath/Compiled2018MappingFile.txt")
 meta = import_qiime_sample_data(meta)
 ps_18S <- phyloseq(otu_table(seqtab18, taxa_are_rows=FALSE), 
                   sample_data(meta), 
                   tax_table(tax18))
 
 #read the tree into R and add to the phyloseq object ps.  It's now called ps_t_silva (for phyloseq_tree_silva).**
-tree_Q2 = read.tree("/Users/lleonard/Documents/R/Compiled2018/aligned/18S_uniques_aligned_pfiltered.tre")
+tree_Q2 = read.tree("/FilePath/18S_uniques_aligned_pfiltered.tre")
 tree_Q2 = root(tree_Q2, 1, resolve.root = T)
 ps_t_18S = merge_phyloseq(ps_18S,tree_Q2) 
 
@@ -182,17 +166,14 @@ sample_counts18S = sample_sums(unrare_18S)
 
 ```{r}
 #Load into phyloseq FOR 16S
-#ps <- phyloseq(otu_table(seqtab, taxa_are_rows=FALSE), tax_table(tax))
-#map <-read.csv("file.csv", sep=";", header=TRUE)
-#meta = read.table("/Users/lleonard/Documents/R/CB_Sequence123/MappingFile123.txt",header=TRUE)
-meta = ("/Users/lleonard/Documents/R/Compiled2018/Compiled2018MappingFile.txt")
+meta = ("/FilePath/Compiled2018MappingFile.txt")
 meta = import_qiime_sample_data(meta)
 ps_16S <- phyloseq(otu_table(seqtab, taxa_are_rows=FALSE), 
                   sample_data(meta), 
                   tax_table(tax))
 
 #read the tree into R and add to the phyloseq object ps.  It's now called ps_t_silva (for phyloseq_tree_silva).**
-tree_Q2 = read.tree("/Users/lleonard/Documents/R/Compiled2018/aligned/16S_uniques_aligned_pfiltered.tre")
+tree_Q2 = read.tree("/FilePath/16S_uniques_aligned_pfiltered.tre")
 tree_Q2 = root(tree_Q2, 1, resolve.root = T)
 ps_t_16S = merge_phyloseq(ps_16S,tree_Q2) 
 
@@ -204,17 +185,16 @@ write.csv(sample_counts16, "sums16.csv")
 ```
 
 ```{r}
-#Rarefy to 5404. Be sure to make a CSV and sort from smallest to largest, and just see if there is a clear drop where you can cut off
-#Run CB_all tomake sure numbers make sense. 
+#Rarefy to 5638. Be sure to make a CSV and sort from smallest to largest, and just see if there is a clear drop where you can cut off
 
-#Filter out 18S, 16S, Mitochondria and Chloroplasts. Run these sets: CB_18S (hit control, enter) make sure numbers #look right, make sense. 
+#Filter out 18S, 16S, Mitochondria and Chloroplasts.
 CB16S = subset_taxa(unrare_16S, (Kingdom != "Eukaryota")&(Class != "Chloroplast")&(Family != "Mitochondria"))
 sums<-sample_sums(CB16S)
 write.csv(sums, "16Ssums.csv")
 
 set.seed(58373)
 CB_16S = rarefy_even_depth(CB16S, sample.size = 5638, replace = FALSE, trimOTUs = TRUE)
-#Make sure here all the numbers are the same, right now they will be 8151
+
 
 sample_sums(CB_16S)
 write.csv(otu_table(CB16S), "16Sotu.csv")
@@ -223,14 +203,12 @@ write.csv(otu_table(CB16S), "16Sotu.csv")
 ```{r}
 #set.seed(58373)
 #CB18S = rarefy_even_depth(unrare_18S, sample.size = 6440, replace = FALSE, trimOTUs = TRUE)
-#Make sure here all the numbers are the same, right now they will be 5849
-#This was really hard, because some had great depth, but the majority did not, so it's a hard balance. Ended up going to 200 like Kristin suggested.
-#As result, 116 samples wre removed. 1128OTUs were removed. :(
 #sample_sums(CB18S)
 CB_18S = subset_taxa(unrare_18S, Kingdom == "Eukaryota")
 sums <-sample_sums(CB_18S)
 write.csv(sums, "sums.csv")
 set.seed(58373)
+#Rarify to 200 
 CB_18S = rarefy_even_depth(CB_18S, sample.size = 200, replace = FALSE, trimOTUs = TRUE)
 sample_sums(CB_18S)
 write.csv(otu_table(CB16S), "18Sotu.csv")
@@ -238,70 +216,20 @@ write.csv(otu_table(CB16S), "18Sotu.csv")
 
 ```{r}
 #FILTER OTU TABLES
-#16S, filter by site
-CB16_Pos=subset_samples(CB_16S, Needle =="Positive")
-CB16_LM = subset_samples(CB_16S, Location == "Lower Montane") 
-CB16_LS = subset_samples(CB_16S, Location == "Lower Subalpine")
-CB16_US = subset_samples(CB_16S, Location == "Upper Subalpine")
-
-CB16_LS_induced = subset_samples(CB16_LS, Snowmelt == "Induced")
-CB16_LS_regular = subset_samples(CB16_LS, Snowmelt == "Regular")
-
-##Subsets made to analyze all the 16S samples for the First paper that only looks at LM and LS_regular
-#Kristin's code
-CB16_FirstPaper=subset_samples(CB_16S,(Location != "Upper Subalpine")&(Needle != "2Red")&(Snowmelt != "Induced"))
-CB16_LS_induced_nobot = subset_samples(CB16_LS, Horizon == "Top")
-CB16_LS_reg_nobot = subset_samples(CB16_LS, Horizon == "Top")
-CB_16S_nodups= subset_samples(CB16_LS_reg_nobot, (Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17"))
-
-#Remove 2xRed
-CB16_LSreg_No_2Red = subset_samples(CB16_LS_regular , (Needle != "2Red"))
-CB16_LSreg_No_2Redorbot = subset_samples(CB16_LSreg_No_2Red , (Horizon != "Bot"))
-CB16_LS_no2red_bot_dubs=subset_samples(CB16_LSreg_No_2Redorbot, (Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17"))
-CB16_LSreg_No_2Redorbotcontrol = subset_samples(CB16_LSreg_No_2Redorbot , (Needle != "Control"))
-
-#Remove 2xRed
-CB16_LSreg_No_2Red_SM = subset_samples(CB16_LS_induced , (Needle != "2Red"))
-CB16_LSreg_No_2Redorbot_SM = subset_samples(CB16_LSreg_No_2Red_SM , (Horizon != "Bot"))
-CB16_LS_no2red_bot_dubs_SM=subset_samples(CB16_LSreg_No_2Redorbot_SM, (Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17"))
-CB16_LSreg_No_2Redorbotcontrol_SM = subset_samples(CB16_LSreg_No_2Redorbot_SM , (Needle != "Control"))
-
-CB16_LM_nobotordubs = subset_samples(CB16_LM , (Horizon != "Bot"), (Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17"))
-
-CB16_US_nobotordubs = subset_samples(CB16_US , (Horizon != "Bot"), (Sample!="G7.10.14.17"))
-
+#16S, filter samples for analysis
 
 #To make comparisons between needle types for each date.
-CB16LS_4= subset_samples(CB16_LS_no2red_bot_dubs, Date=="d_Four")
+CB16LS_4= subset_samples(CB_16S, Date=="d_Four")
 CB16LS_4_Needles= subset_samples(CB16LS_4, Type=="Needle")
 CB16LS_4_Spruce= subset_samples(CB16LS_4_Needles, TreeSpecies=="Spruce")
 CB16LS_4_Lodge= subset_samples(CB16LS_4_Needles, TreeSpecies=="Lodge")
 CB16LS_4_Control= subset_samples(CB16LS_4, TreeSpecies=="Control")
-CB16LS_3= subset_samples(CB16_LS_no2red_bot_dubs, Date=="c_Three")
-CB16LS_5= subset_samples(CB16_LS_no2red_bot_dubs, Date=="e_Five")
-CB16LS_2= subset_samples(CB16_LS_no2red_bot_dubs, Date=="b_Two")
-CB16LS_1= subset_samples(CB16_LS_no2red_bot_dubs, Date=="a_One")
+CB16LS_3= subset_samples(CB_16S, Date=="c_Three")
+CB16LS_5= subset_samples(CB_16S, Date=="e_Five")
+CB16LS_2= subset_samples(CB_16S, Date=="b_Two")
+CB16LS_1= subset_samples(CB_16S, Date=="a_One")
 CB16LS_1_Needles= subset_samples(CB16LS_1, Type=="Needle")
 CB16LS_1_Spruce= subset_samples(CB16LS_1_Needles, TreeSpecies=="Spruce")
-
-CB16LS_4_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Date=="d_Four")
-CB16LS_3_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Date=="c_Three")
-CB16LS_5_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Date=="e_Five")
-CB16LS_2_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Date=="b_Two")
-CB16LS_1_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Date=="a_One")
-
-#To make comparisons between needle types for each date.
-CB16LM_4= subset_samples(CB16_LM_nobotordubs, Date=="d_Four")
-CB16LM_3= subset_samples(CB16_LM_nobotordubs, Date=="c_Three")
-CB16LM_5= subset_samples(CB16_LM_nobotordubs, Date=="e_Five")
-CB16LM_2= subset_samples(CB16_LM_nobotordubs, Date=="b_Two")
-CB16LM_1= subset_samples(CB16_LM_nobotordubs, Date=="a_One")
-
-#To make comparisons between needle types for each date.
-CB16US_4= subset_samples(CB16_US_nobotordubs, Date=="d_Four")
-CB16US_3= subset_samples(CB16_US_nobotordubs, Date=="c_Three")
-CB16US_2= subset_samples(CB16_US_nobotordubs, Date=="b_Two")
-CB16US_1= subset_samples(CB16_US_nobotordubs, Date=="a_One")
 
 #To make comparisons between dates for each needle type.
 CB16LS_Red= subset_samples(CB16_LS_no2red_bot_dubs, Needle=="Red")
@@ -309,140 +237,21 @@ CB16LS_Green= subset_samples(CB16_LS_no2red_bot_dubs, Needle=="Green")
 CB16LS_Lodge= subset_samples(CB16_LS_no2red_bot_dubs, Needle=="Lodge")
 CB16LS_Control= subset_samples(CB16_LS_no2red_bot_dubs, (Needle !="Red")&(Needle !="Green")&(Needle !="Lodge"))
 
-CB16LS_Red_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Needle=="Red")
-CB16LS_Green_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Needle=="Green")
-CB16LS_Lodge_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, Needle=="Lodge")
-CB16LS_Control_SM= subset_samples(CB16_LS_no2red_bot_dubs_SM, (Needle !="Red")&(Needle !="Green")&(Needle !="Lodge"))
-
-#To make comparisons between dates for each needle type.
-CB16LM_Red= subset_samples(CB16_LM_nobotordubs, Needle=="Red")
-CB16LM_Green= subset_samples(CB16_LM_nobotordubs, Needle=="Green")
-CB16LM_Lodge= subset_samples(CB16_LM_nobotordubs, Needle=="Lodge")
-CB16LM_Control= subset_samples(CB16_LM_nobotordubs, (Needle !="Red")&(Needle !="Green")&(Needle !="Lodge"))
-
-#To make comparisons between dates for each needle type.
-CB16US_Red= subset_samples(CB16_US_nobotordubs, Needle=="Red")
-CB16US_Green= subset_samples(CB16_US_nobotordubs, Needle=="Green")
-CB16US_Lodge= subset_samples(CB16_US_nobotordubs, Needle=="Lodge")
-CB16US_Control= subset_samples(CB16_US_nobotordubs, (Needle !="Red")&(Needle !="Green")&(Needle !="Lodge"))
-sample_sums(CB16US_Red)
-
-CB16_Red = subset_samples(CB_16S, Needle == "Red") 
-CB16_Green = subset_samples(CB_16S, Needle == "Green")
-CB16_Lodge = subset_samples(CB_16S, Needle == "Lodge")
-CB16_Control = subset_samples(CB_16S, (Needle !="Red")&(Needle !="Green")&(Needle !="Lodge")&(Needle !="2Red"))
-
-CB16_red_nobot_dubs=subset_samples(CB16_Red, (Horizon !="Bot")&(Sample !="A3.10.14.17")&(Sample !="C10.10.14.17")&(Type !="Positive"))
-CB16_green_nobot_dubs=subset_samples(CB16_Green, (Horizon !="Bot")&(Sample !="E12.10.14.17")&(Sample !="G7.10.14.17")&(Type !="Positive"))
-CB16_lodge_nobot_dubs=subset_samples(CB16_Lodge, (Horizon !="Bot")&(Type !="Positive"))
-CB16_control_nobot_dubs=subset_samples(CB16_Control, (Horizon !="Bot")&(Sample !="F8.10.14.17")&(Sample !="C4.10.14.17")&(Type !="Positive"))
-
-CB16_red_nobot_dubs=subset_samples(CB16_Red, (Horizon !="Bot")&(Sample !="A3.10.14.17")&(Sample !="C10.10.14.17")&(Type !="Positive"))
-CB16_green_nobot_dubs=subset_samples(CB16_Green, (Horizon !="Bot")&(Sample !="E12.10.14.17")&(Sample !="G7.10.14.17")&(Type !="Positive"))
-CB16_control_nobot_dubs=subset_samples(CB16_Control, (Horizon !="Bot")&(Sample !="F8.10.14.17")&(Sample !="C4.10.14.17")&(Type !="Positive"))
-
-#All locations (4), for each specific date
-CB16_nopos=subset_samples(CB_16S, (Sample !="Positive")&(Sample !="A3.10.14.17")&(Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17")&(Sample !="G7.10.14.17"))
-
-CB16_1=subset_samples(CB16_nopos, Date=="a_One")
-CB16_2=subset_samples(CB16_nopos, Date=="b_Two")
-CB16_3=subset_samples(CB16_nopos, Date=="c_Three")
-CB16_4=subset_samples(CB16_nopos, Date=="d_Four")
-CB16_5=subset_samples(CB16_nopos, Date=="e_Five")
-
-CB16_lodge_1=subset_samples(CB16_lodge_nobot_dubs, Date=="a_One")
-CB16_lodge_2=subset_samples(CB16_lodge_nobot_dubs, Date=="b_Two")
-CB16_lodge_3=subset_samples(CB16_lodge_nobot_dubs, Date=="c_Three")
-CB16_lodge_4=subset_samples(CB16_lodge_nobot_dubs, Date=="d_Four")
-CB16_lodge_5=subset_samples(CB16_lodge_nobot_dubs, Date=="e_Five")
-
-CB16_control_1=subset_samples(CB16_control_nobot_dubs, Date=="a_One")
-CB16_control_2=subset_samples(CB16_control_nobot_dubs, Date=="b_Two")
-CB16_control_3=subset_samples(CB16_control_nobot_dubs, Date=="c_Three")
-CB16_control_4=subset_samples(CB16_control_nobot_dubs, Date=="d_Four")
-CB16_control_5=subset_samples(CB16_control_nobot_dubs, Date=="e_Five")
-
-#You need to change mapping file so that you can compare just Lower Montane and Induced Lower Subalpine across dates. Add moisture data while you're at it. 
-CB_Red_Snowmelt=subset_samples(CB16_red_nobot_dubs, (Location !="Upper Subalpine")&(Elevation !="LS"))
-CB_Green_Snowmelt=subset_samples(CB16_green_nobot_dubs, (Location !="Upper Subalpine")&(Elevation !="LS"))
-CB_Lodge_Snowmelt=subset_samples(CB16_lodge_nobot_dubs, (Location !="Upper Subalpine")&(Elevation !="LS"))
-CB_Control_Snowmelt=subset_samples(CB16_control_nobot_dubs, (Location !="Upper Subalpine")&(Elevation !="LS"))
-CB_Control_Snowmelt_1=subset_samples(CB_Control_Snowmelt, Date=="a_One")
-CB_Control_Snowmelt_3=subset_samples(CB_Control_Snowmelt, Date=="c_Three")
-CB_Control_Snowmelt_4=subset_samples(CB_Control_Snowmelt, Date=="d_Four")
-
-CB_Lodge_Snowmelt_1=subset_samples(CB_Lodge_Snowmelt, Date=="a_One")
-CB_Lodge_Snowmelt_2=subset_samples(CB_Lodge_Snowmelt, Date=="b_Two")
-CB_Lodge_Snowmelt_3=subset_samples(CB_Lodge_Snowmelt, Date=="c_Three")
-CB_Lodge_Snowmelt_4=subset_samples(CB_Lodge_Snowmelt, Date=="d_Four")
-CB_Lodge_Snowmelt_5=subset_samples(CB_Lodge_Snowmelt, Date=="e_Five")
-
-CB_3=subset_samples(CB_16S, Date=="c_Three")
-CB_3_Snowmelt=subset_samples(CB_3, (Location !="Upper Subalpine")&(Elevation !="LS")&(Horizon !="Bot")&(Needle != "2Red")&(Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17")&(Sample !="A3.10.14.17"))
-
-sample_sums(CB_4)
-CB_4=subset_samples(CB_16S, Date=="d_Four")
-CB_4_Snowmelt=subset_samples(CB_4, (Location !="Upper Subalpine")&(Elevation !="LS")&(Horizon !="Bot")&(Needle != "2Red")&(Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17")&(Sample !="A3.10.14.17"))
-
-CB_5=subset_samples(CB_16S, Date=="e_Five")
-CB_5_Snowmelt=subset_samples(CB_5, (Location !="Upper Subalpine")&(Elevation !="LS")&(Horizon !="Bot")&(Needle != "2Red")&(Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17")&(Sample !="A3.10.14.17"))
-
-CB_1=subset_samples(CB_16S, Date=="a_One")
-CB_1_Snowmelt=subset_samples(CB_1, (Location !="Upper Subalpine")&(Elevation !="LS")&(Horizon !="Bot")&(Needle != "2Red")&(Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17")&(Sample !="A3.10.14.17"))
-
-CB_2=subset_samples(CB_16S, Date=="b_Two")
-CB_2_Snowmelt=subset_samples(CB_1, (Location !="Upper Subalpine")&(Elevation !="LS")&(Horizon !="Bot")&(Needle != "2Red")&(Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17")&(Sample !="A3.10.14.17"))
-
-CB_LSRed=subset_samples(CB16_red_nobot_dubs, (Location !="Upper Subalpine")&(Location !="Lower Montane"))
-CB_LSGreen=subset_samples(CB16_green_nobot_dubs, (Location !="Upper Subalpine")&(Location !="Lower Montane"))
-CB_LSLodge=subset_samples(CB16_lodge_nobot_dubs, (Location !="Upper Subalpine")&(Location !="Lower Montane"))
-CB_LSControl=subset_samples(CB16_control_nobot_dubs, (Location !="Upper Subalpine")&(Location !="Lower Montane"))
-
-
-sample_sums(CB_3_Snowmelt)
-
 ```
 
 ```{r}
-#18S, filter by site
-CB18_LM = subset_samples(CB_18S, Location == "Lower Montane") 
-CB18_LS = subset_samples(CB_18S, Location == "Lower Subalpine")
-CB18_US = subset_samples(CB_18S, Location == "Upper Subalpine")
+#18S, filter by sample types
 
-CB18_LS_induced = subset_samples(CB18_LS, Snowmelt == "Induced")
-CB18_LS_regular = subset_samples(CB18_LS, Snowmelt == "Regular")
+CB18LS_4= subset_samples(CB_18S, Date=="d_Four")
+CB18LS_3= subset_samples(CB_18S, Date=="c_Three")
+CB18LS_5= subset_samples(CB_18S, Date=="e_Five")
+CB18LS_2= subset_samples(CB_18Ss, Date=="b_Two")
+CB18LS_1= subset_samples(CB_18S, Date=="a_One")
 
-##Subsets made to analyze all the 16S samples for the First paper that only looks at LM and LS_regular
-#Kristin's code
-CB18_FirstPaper=subset_samples(CB_18S,(Location != "Upper Subalpine")&(Needle != "2Red")&(Snowmelt != "Induced"))
-
-CB18_LS_induced_nobot = subset_samples(CB18_LS, Horizon == "Top")
-CB18_LS_reg_nobot = subset_samples(CB18_LS, Horizon == "Top")
-#Remove 2xRed
-CB18_LSreg_No_2Red = subset_samples(CB18_LS_regular , (Needle != "2Red"))
-CB18_LSreg_No_2Redorbot = subset_samples(CB18_LSreg_No_2Red , (Horizon != "Bot"))
-CB18_LSreg_No_2Redorbotcontrol = subset_samples(CB18_LSreg_No_2Redorbot , (Needle != "Control"))
-CB18_LS_no2red_bot_dubs=subset_samples(CB18_LSreg_No_2Redorbot, (Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17"))
-CB18LS_Shade= subset_samples(CB18_LS_regular, Needle=="Shade")
-
-CB18LS_4= subset_samples(CB18_LS_no2red_bot_dubs, Date=="d_Four")
-CB18LS_3= subset_samples(CB18_LS_no2red_bot_dubs, Date=="c_Three")
-CB18LS_5= subset_samples(CB18_LS_no2red_bot_dubs, Date=="e_Five")
-CB18LS_2= subset_samples(CB18_LS_no2red_bot_dubs, Date=="b_Two")
-CB18LS_1= subset_samples(CB18_LS_no2red_bot_dubs, Date=="a_One")
-
-CB18LS_Red= subset_samples(CB18_LS_no2red_bot_dubs, Needle=="Red")
-CB18LS_Green= subset_samples(CB18_LS_no2red_bot_dubs, Needle=="Green")
-CB18LS_Lodge= subset_samples(CB18_LS_no2red_bot_dubs, Needle=="Lodge")
-CB18LS_Control= subset_samples(CB18_LS_no2red_bot_dubs, Needle=="Control")
-
-CB18_LM_nobotordubs = subset_samples(CB18_LM , (Horizon != "Bot"), (Sample !="C10.10.14.17")&(Sample !="C4.10.14.17")& (Sample !="E10.10.14.17")&(Sample !="E12.10.14.17")&(Sample !="F4.10.14.17")&(Sample !="F8.10.14.17"))
-
-CB18LM_4= subset_samples(CB18_LM_nobotordubs, Date=="d_Four")
-CB18LM_3= subset_samples(CB18_LM_nobotordubs, Date=="c_Three")
-CB18LM_5= subset_samples(CB18_LM_nobotordubs, Date=="e_Five")
-CB18LM_2= subset_samples(CB18_LM_nobotordubs, Date=="b_Two")
-CB18LM_1= subset_samples(CB18_LM_nobotordubs, Date=="a_One")
+CB18LS_Red= subset_samples(CB_18S, Needle=="Red")
+CB18LS_Green= subset_samples(CB_18S, Needle=="Green")
+CB18LS_Lodge= subset_samples(CB_18S, Needle=="Lodge")
+CB18LS_Control= subset_samples(CB_18S, Needle=="Control")
 
 ```
 

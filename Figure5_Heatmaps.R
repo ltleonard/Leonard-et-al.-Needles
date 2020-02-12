@@ -4,45 +4,45 @@
 #Combine OTU abundance table and taxonomy table from the 16S phyloseq object of date "four."
 LS4 <- CB16LS_4
 t_otu <- t(data.frame(otu_table(LS4)))
-otutable_4ampvis2 <- data.frame(OTU = rownames(t_otu@.Data),
+otutable_4ampvis <- data.frame(OTU = rownames(t_otu@.Data),
                                 t_otu@.Data,
                                 phyloseq::tax_table(LS4)@.Data,
                                 check.names = FALSE
 )
-
-dim(otutable_4ampvis2)
-
-otutable_4ampvis2[22] <- "NA"
-colnames(otutable_4ampvis2)[22] <- "Species"
+#We need to see the dimensions of the OTU table so the following code knows which column to add from without over-writing the table
+dim(otutable_4ampvis)
+#Now that we know the number of columns, add +1 to that number, in this case it is 21+1=22
+otutable_4ampvis[22] <- "NA" #Be sure to change the number accordingly here
+colnames(otutable_4ampvis)[22] <- "Species" #Be sure to change the number accordingly here
 #Extract metadata from the phyloseq object:
-metadata_4ampvis2 <- data.frame(phyloseq::sample_data(LS4), 
+metadata_4ampvis <- data.frame(phyloseq::sample_data(LS4), 
                                 check.names = FALSE
 )
 #Load the data with amp_load:Warning message:
 #Only 63 of 67 unique sample names match between metadata and otutable. The following unmatched samples have been removed:
-LS4_ampvis <- amp_load(otutable_4ampvis2, metadata_4ampvis2)
+LS4_ampvis <- amp_load(otutable_4ampvis, metadata_4ampvis)
 
 #_______________________________________________________________________________________________
 #Combine OTU abundance table and taxonomy table from the 16S phyloseq object of date "one."
 LS1 <- CB16LS_1
 t_otu <- t(data.frame(otu_table(LS1)))
-otutable_4ampvis2 <- data.frame(OTU = rownames(t_otu@.Data),
+otutable_1ampvis <- data.frame(OTU = rownames(t_otu@.Data),
                                 t_otu@.Data,
                                 phyloseq::tax_table(LS1)@.Data,
                                 check.names = FALSE
 )
-
-dim(otutable_4ampvis2)
-
-otutable_4ampvis2[20] <- "NA"
-colnames(otutable_4ampvis2)[20] <- "Species"
+#We need to see the dimensions of the OTU table so the following code knows which column to add from without over-writing the table
+dim(otutable_1ampvis)
+#Now that we know the number of columns, add +1 to that number, in this case it is 21+1=22
+otutable_1ampvis[20] <- "NA" #Be sure to change the number accordingly here
+colnames(otutable_1ampvis)[20] <- "Species" #Be sure to change the number accordingly here
 #Extract metadata from the phyloseq object:
-metadata_4ampvis2 <- data.frame(phyloseq::sample_data(LS1), 
+metadata_1ampvis <- data.frame(phyloseq::sample_data(LS1), 
                                 check.names = FALSE
 )
 #Load the data with amp_load:Warning message:
 #Only 63 of 67 unique sample names match between metadata and otutable. The following unmatched samples have been removed:
-LS1_ampvis <- amp_load(otutable_4ampvis2, metadata_4ampvis2)
+LS1_ampvis <- amp_load(otutable_1ampvis, metadata_1ampvis)
 #_______________________________________________________________________________________________
 #Combine OTU abundance table and taxonomy table from the 18S phyloseq object of date "four."
 LS4_18 <- CB18LS_4
@@ -52,11 +52,11 @@ otutable_4ampvis2 <- data.frame(OTU = rownames(t_otu@.Data),
                                 phyloseq::tax_table(LS4_18)@.Data,
                                 check.names = FALSE
 )
-
+#We need to see the dimensions of the OTU table so the following code knows which column to add from without over-writing the table
 dim(otutable_4ampvis2)
-
-otutable_4ampvis2[19] <- "NA"
-colnames(otutable_4ampvis2)[19] <- "Species"
+#Now that we know the number of columns, add +1 to that number, in this case it is 21+1=22
+otutable_4ampvis2[19] <- "NA" #Be sure to change the number accordingly
+colnames(otutable_4ampvis2)[19] <- "Species" #Be sure to change the number accordingly
 #Extract metadata from the phyloseq object:
 metadata_4ampvis2 <- data.frame(phyloseq::sample_data(LS4_18), 
                                 check.names = FALSE
@@ -67,22 +67,22 @@ LS4_18_ampvis <- amp_load(otutable_4ampvis2, metadata_4ampvis2)
 #Combine OTU abundance table and taxonomy table from the 18S phyloseq object of date "one."
 LS1_18 <- CB18LS_1
 t_otu <- t(data.frame(otu_table(LS5_18)))
-otutable_4ampvis2 <- data.frame(OTU = rownames(t_otu@.Data),
+otutable_1ampvis2 <- data.frame(OTU = rownames(t_otu@.Data),
                                 t_otu@.Data,
                                 phyloseq::tax_table(LS5_18)@.Data,
                                 check.names = FALSE
 )
-
-dim(otutable_4ampvis2)
-
-otutable_4ampvis2[21] <- "NA"
-colnames(otutable_4ampvis2)[21] <- "Species"
+#We need to see the dimensions of the OTU table so the following code knows which column to add from without over-writing the table
+dim(otutable_1ampvis2)
+#Now that we know the number of columns, add +1 to that number, in this case it is 21+1=22
+otutable_1ampvis2[21] <- "NA" #Change this number accordingly
+colnames(otutable_1ampvis2)[21] <- "Species" #Change this number accordingly
 #Extract metadata from the phyloseq object:
-metadata_4ampvis2 <- data.frame(phyloseq::sample_data(LS5_18), 
+metadata_1ampvis2 <- data.frame(phyloseq::sample_data(LS5_18), 
                                 check.names = FALSE
 )
 #Load the data with amp_load:
-LS1_18_ampvis <- amp_load(otutable_4ampvis2, metadata_4ampvis2)
+LS1_18_ampvis <- amp_load(otutable_1ampvis2, metadata_1ampvis2)
 
 #_______________________________________________________________________________________________
 #Plot the heatmap for date "one"
